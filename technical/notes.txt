@@ -1,0 +1,132 @@
+ 
+IC/DRAM TESTER TECHNICAL DESCRIPTION
+2017 MCbx
+
+This is a description of a simple TTL IC/DRAM tester made around ATMegas/Arduino platform. Although Arduino has been used as prototyping tool, its stand-alone prototype does not use Arduino module - only microcontrollers extracted from Arduino.
+
+The tester consists of the following modules:
+ - Main tester module - contains ATMega328 as CPU, 20-pin DIP socket, power configuration switches and 3 power LEDs (for 3 voltages).
+ - Terminal module - Contains ATMega8 chip but its software can be put into ATMega328 too. Has LCD and 3 buttons (Left, Right, Enter). Works as user interface for main module.
+ - Power module - Contains the following parts: 12V regulator, 5V regulator, 12V switch, -5V inverter, 5V regulator for tested IC. It also has power sense circuit to check for inverter working - there is nothing worse for 4116 chip than powering it without -5V.
+ 
+1. MAIN TESTER MODULE
+This is the main module. It directly interfaces with chip tested, and currently it's done without any protection circuit. It executes tests on chip and exchanges information by serial port. By default, it works on 38400bps, but when overclocked with 24MHz crystal, it becomes 57600bps.
+Usually after terminal power-on, the tester module loops power test until terminal is ready to process power signal. Reset from terminal is not connected as these two frequently "interlocked" - Main module starting sent POWER ON to booting terminal, Arduino loader then aborted terminal boot pulling main tester's /RESET low and everything hanged, tester in permanent reset, terminal in permanent bootloading.
+The code works around FastGPIO library: https://github.com/pololu/fastgpio-arduino.
+
+1.1 TESTER MODULE POWER ON
+WARNING: All times /1.5 and speeds *1.5 when 24MHz crystal is used!
+ 1. Initialize serial port to 38400bps and wais 100ms.
+ 2. Turn the power on, print "PWR TEST" text.
+ 3. Check for POWER GOOD from terminal. If not "1", display "-5V POWER BAD" and hang. 
+Repeat steps 2 and 3 every 0.5s until POWER GOOD is 1.
+ 4. Launch main menu. This routine displays fancy chooser and configures menuptr variable. If it's 7, it boots TTL tester part. It also configures internally initialize/read/write/address/refresh routines proper for the chip selected. Then it shows how to configure switches and waits for key.
+ 5. Depending on menuptr, configure I/O for chips.
+ 6. Turn the power on. Memory chip slowly initializes...
+ 7. Set refreshing interrupt fire in regular (too big) intervals.
+ 8. Go to loop:
+
+ 9. Initialize memory.
+ 10. For all patterns:
+    - Turn interrupts off. Fill memory with pattern. 
+    - Turn interrupts on. Wait a sec or two,
+    - Turn interrupts off. Read bits off and compare with pattern. If different - FAIL.
+This goes ad nauseam increasing pattern counter.
+
+Generally the only way to recover from error/stop is to press RESET button.
+ 
+1.2 DRAM ROUTINES NAMES
+The same numbering goes for write_word, read_word, but for initialize_memory it's 2 (21010) or 1 (all other).
+putAddress1 - for 4116, 4164, 41256
+putAddress2 - for 21010
+putAddress4 - for 4416, 4464
+putAddress5 - for 44256
+
+1.3 TESTER MODULE PIN ASSIGNMENTS
+These are not assigned in defines.
+ZIF     AVR     ARDUINO
+1       28          19 (A5)  
+2       25          16 (A2)
+3       4            2      Alternatively to -5V by SW1 (for 4116)
+4       5            3
+5       6            4
+6       11           5
+7       12           6
+8       13           7
+9       14           8
+10      NONE        NONE     Alternatively Vcc or 12V by SW2 (12V for 4116)
+11      15           9       Alternatively Vcc by SW3 (for 4116)
+12      16           10
+13      17           11
+14      18           12
+15      19           13
+16      23           14 (A0)
+17      24           15 (A1)
+18      26           16 (A3) Alternatively GND by SW4 (for 4116, 4164, 41256)
+19      27           18 (A4) Altenratively GND by SW5 (for 4416, 4464, 21010)
+20   -------GND--------
+
+1.4 SWITCH CONFIGURATIONS:
+Switches written here should be in their power positions (not pin positions) - linking power to socket.
+4116: SW1, SW2, SW3, SW4
+4164: SW4
+41256: SW4
+4416: SW5
+4464: SW5
+44256: NONE
+21010: SW5
+
+1.5 TTL LOGIC TESTER
+The manual to write test scripts is in comments. Example routine for non-scripted test is appended as test of CD4040 chip, but it should be noticed that this routine is large and these procedures should be avoided.
+Testing script is executed 100 times and all must pass. This is made on a single power-on session and this should be taken into account when writing scripts for memory chips (reset/clear it above all things!).
+To sum up, to add script to this abysmal mess:
+1. add chip number in chips1[],
+2. Add script as const long s0xx[] PROGMEM = {n, x1, x2, x3, ...xn-1}
+3. Add it into script[] in the same place as description in chips1[].
+By boot-up, it spawns menu and testing is done on the similar principle as DRAM test, but test is executed from script.
+To partially solve the problem of writing binary longs "from head" which is quite difficult, I supply a Perl script to convert ICTester's MOD files to scripts.
+Remember that 14-pin ICs are not properly powered in this tester. If the chip has no typical power pins (like 7493 counter) it cannot be tested in this program. Watch for it when converting MOD scripts.
+
+GENERALLY you put the DRAM with notch towards pin 1, with the chip's bottom sitting in the bottom of socket. TTLs are put with notch always touching the bottom of socket!
+
+
+2. TERMINAL MODULE
+This module works as user interface for tester module. It consists of ATMega8 chip running at 16MHz, which maintains serial communication with tester and displays incoming bytes on LCD. Pin assignments are covered in source definitons. 
+Because AVR loader makes uC not start when there is a serial transmission before RESET going high, the RESET procedure is not executed and this pin is not connected to tester in hardware. Instead, hardware is purely manual (by pushing button).
+There is a baudrate jumper in this module. If open, it turns to 57600bps, this setting is used when main tester is overclocked to 24MHz. Closed jumper (grounded) means 38400bps, used if main tester is operating on stock 16MHz crystal.
+The main function of the tester is to pass all characters incoming from serial port to LCD and transmit the following characters for keys:
+LEFT - a (small a)
+RIGHT - d (small d)
+ENTER - s (small s)
+To make debugging of tester module easier, these characters look on QWERTY keyboard exactly as in control panel of tester. Newline is \n, NOT \r\n.
+However, there are 3 command characters to drive power of tester. When encountered, these characters are not printed on LCD, but instead function is executed:
+~ - tilde character - turns power on (HIGH on power pin).
+`  - gravis character - turns the power off (LOW on power pin, as default)
+^ - sharkfin character (seriously, what's its official name?) - makes the terminal send 0 or 1 depending on POWER_GOOD (PWR_GD) pin - 1 when LOW.
+Buttons debouncing works simply by omitting buttons detection part when counter is not 0. Counter resets to pre-set value if any button is pressed.
+
+2.1 TERMINAL MODULE POWER ON
+ 1. Initialize LCD and set cursor to 0;0
+ 2. Set BAUD as input_pullup, read BAUD pin state.
+    - If high, configure serial port to 57600bps and display "57600 OK".
+    - If low, configure serial port to 38400bps and display "38400 
+ 3. Configure buttons, reset and power in/out pins
+ 4. Pull reset pin low for 10ms, then back high (now not used!).
+ 5. Begin typical operation
+ 
+2.2 TERMINAL MODULE PIN ASSIGNMENTS
+As in source code definitions.
+
+
+3. ADDITIONAL NOTES
+Prototype pinouts, power module and notes (scans) are supplied with this document.
+The power inverter works in a few stages: 
+ - 15V is regulated down to 12V
+ - 12V is regulated down to 5V for logic, it is always present.
+ - 12V is switched by transistor switch.
+ - The switched 12V is passed to 12V for tester's socket.
+ - The switched 12V is regulated to 5V by 7805 and passed to tester's sicket.
+ - The switched 12V is inverted: 555 inverts 12V to make ca. -9V and it's regulated by 79L05. Then it's passed to tester's socket.
+ - -5V also drives optocoupler to generate POWER GOOD signal. 
+ 
+A whole tester needs at least 15V DC supply to make 12V.
