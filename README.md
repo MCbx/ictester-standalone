@@ -1,11 +1,14 @@
 Stand-alone IC Tester
+========================
 
 GNU GPL
 
 This is a circuit which allows to test various ICs used in old computers. 
 
 1. IC support list:
+
 DRAM: 4116 (not tested), 4164, 41256, 4416, 4464, 44256, 21010, single-voltage 4116 (K565RU5 or sth like it).
+
 74: About 70 types of 74-family and 40-family chips.
 
 WARNING: This tester DOESN'T TEST memory on high-speed, like these GAL-based ones. It should not be used as benchmarking tool. However, extensive testing can reveal problems in e.g. failing video RAM chip in some 8-bit computers.
@@ -37,11 +40,13 @@ This is far from perfect nor efficient, but works. It also provides POWER GOOD s
 At boot-up, the tester always performs the power test. If it cannot get -5V, it doesn't allow to start and repeats tests. This is intentional because without -5V, 4116 chips tend to irreversely fail.
 
 SWITCHES
-
+=========
 SW1,2,3 are used only with 4116 and they supply voltages for 4116.
+
 SW4 and 5 supply ground to pins. They may be used for selecting different chip.
 
 TESTS
+=======
 The device performs memory tests by writing patterns, waiting a few seconds and reading them back. It performs test in an infinite loop and the method to interrupt is to reset the tester module.
 TTL logic tests are made by using test scripts encoded in program. Tester performs 100 repetitions of test, if any fails, it fails the test, if all passes, it displays that chip is OK. You can add your own chips by modifying scripts array, but pay attention to Vcc and GND. 
 GND in DIP14 logic chips is connected a very bad way (40mA efficiency). This will likely work, but in some rare and antique chips (especially Soviet K155 from 1970s) tests may fail.
