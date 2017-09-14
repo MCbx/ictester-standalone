@@ -5,21 +5,21 @@ GNU GPL
 
 This is a circuit which allows to test various ICs used in old computers. 
 
-1. IC support list:
-
-DRAM: 4116 (not tested), 4164, 41256, 4416, 4464, 44256, 21010, single-voltage 4116 (K565RU5 or sth like it).
-
+IC support list:  
+DRAM: 4116 (not tested), 4164, 41256, 4416, 4464, 44256, 21010, single-voltage 4116 (K565RU5 or sth like it).  
 74: About 70 types of 74-family and 40-family chips.
 
 WARNING: This tester DOESN'T TEST memory on high-speed, like these GAL-based ones. It should not be used as benchmarking tool. However, extensive testing can reveal problems in e.g. failing video RAM chip in some 8-bit computers.
 
-It consists of a few parts.
+It consists of a few parts:
 1. Tester part
 2. Terminal
 3. Power supply
 
+
 1. Tester part consists of a 20-pin ZIF socket, ATMega328 microcontroller and 5 switches. It has also all components needed to get ATMega328 up and running (crystal oscillator, capacitors etc.). It must be ATMega328 as code is quite large (>16kB).
 By default, 24MHz crystal is used, but 16MHz crystal may be used too. Baud rate of serial port is increased by 1.5 when using 24MHz. With 16MHz, baudrate is 38400, 57600 with 24MHz. Terminal works in 57600. By grounding jumper pin on terminal module you can force it to work with 38400.
+
 
 2. Terminal part is connected to tester part with TTL RS232 lines and controls tester's reset line. Terminal part consists of:
  - ATMega chip (8, 328, any)
@@ -30,6 +30,7 @@ The role of this part is:
  - Provide user interface for tester
  - Turn power to chip tested on and off.
  - Check power is good.
+
 
 3. Power supply/converter block is responsible for generating all voltages to chip and turn it on/off.
  - Vcc for chip is generated separately from 12V (a poor-man's current limitter to avoid resetting everything)
